@@ -31,6 +31,8 @@ def print_menu():
     print("8. Калькулятор оптової знижки")
     print("9. Закрити рахунок")
     print("10. Резервна копія бази даних")
+    print("11. Загальний баланс")
+    print("12. Пошук рахунків за категорією")
     print("0. Вихід")
     print("=" * 50)
 
@@ -116,51 +118,65 @@ def account_info_menu():
     try:
         bayer_id = input("Введіть ID покупця: ").strip()
 
-        # Отримуємо дані вручну, оскільки get_account_info може не існувати
         database = db.load_database()
 
-        if bayer_id not in database:
-            raise ValueError(f"Рахунок '{bayer_id}' не знайдено")
+        info = rs.get_account_info(bayer_id, database)
 
-        account = database[bayer_id]
+        print(f"\n{'=' * 40}")
+        print(f"ID покупця: {info['bayer_id']}")
+        print(f"Баланс: {info['balance']:.2f} грн")
+        print(f"Категорія: {info['category']}")
+        print(f"Кількість транзакцій: {info['transactions_count']}")
 
-        print(f"\n{'='*40}")
-        print(f"ID покупця: {account['bayer_id']}")
-        print(f"Баланс: {account['balance']:.2f} грн")
-        print(f"Категорія: {account.get('category', 'Regular')}")
-        print(f"Кількість транзакцій: {len(account['transaction_history'])}")
+        last =  info.get("last_transaction")
 
-        if account["transaction_history"]:
+        if last:
             print(f"\n📜 Остання транзакція:")
-            last = account["transaction_history"][-1]
-            print(f"   Тип: {last['type']}")
-            print(f"   Сума: {last['amount']:.2f} грн")
-            print(f"   Баланс після: {last['balance_after']:.2f} грн")
+            print(f"   Тип: {last.get('type')}")
+            print(f"   Сума: {last.get('amount', 0.0):.2f} грн")
+            print(f"   Баланс після: {last.get('balance_after', 0.0):.2f} грн")
 
-        print(f"{'='*40}")
+        print(f"{'=' * 40}")
 
     except ValueError as e:
         print(f"\n❌ Помилка: {e}")
 
-
 def list_accounts_menu():
     """Меню перегляду всіх рахунків."""
-    print("\n📋 Список всіх рахунків")
+    print("\n📋 Список усіх рахунків")
     print("-" * 40)
 
-    accounts = db.load_database()
+    database = db.load_database()
 
-    if not accounts:
-        print("\n⚠️  База даних порожня. Немає жодного рахунку.")
+    if not database:
+        print("⚠️ Рахунків немає")
         return
 
-    print(f"\nВсього рахунків: {len(accounts)}\n")
+    for bayer_id, account in database.items():
+        balance = account.get("balance", 0.0)
+        print(f"ID: {bayer_id} | Баланс: {balance:.2f} грн")
 
+    print("-" * 40)
+
+
+def search_by_category_menu():
+    """Меню пошуку рахунків за категорією."""
+    print("\n🔍 Пошук за категорією")
+    print("-" * 40)
+    print("Категорії: Regular, Student, VIP")
+
+    category = input("Введіть категорію: ").strip()
+    accounts = rs.find_accounts_by_category(category)
+
+    if not accounts:
+        print(f"\n⚠️  Рахунків категорії '{category}' не знайдено")
+        return
+
+    print(f"\nЗнайдено рахунків: {len(accounts)}\n")
     for bayer_id, account in accounts.items():
-        print(f"┌─ {bayer_id}")
-        print(f"│  Баланс: {account['balance']:.2f} грн")
-        print(f"│  Категорія: {account.get('category', 'Regular')}")
-        print(f"└─ Транзакцій: {len(account['transaction_history'])}\n")
+        print(f"├─ {bayer_id}: {account['balance']:.2f} грн")
+
+
 
 
 def discount_calculator_menu():
@@ -251,6 +267,12 @@ def backup_menu():
     except Exception as e:
         print(f"\n❌ Помилка створення резервної копії: {e}")
 
+def total_balance_menu():
+    """Показує загальний баланс всіх рахунків."""
+    total = rs.get_total_balance()
+    print(f"\n💰 Загальний баланс системи: {total:.2f} грн")
+
+
 
 def main():
     """Головна функція програми."""
@@ -260,7 +282,7 @@ def main():
         print_menu()
 
         try:
-            choice = input("\n👉 Оберіть опцію (0-10): ").strip()
+            choice = input("\n👉 Оберіть опцію (0-12): ").strip()
 
             if choice == "1":
                 create_account_menu()
@@ -282,6 +304,10 @@ def main():
                 close_account_menu()
             elif choice == "10":
                 backup_menu()
+            elif choice == "11":
+                total_balance_menu()
+            elif choice == "12":
+                search_by_category_menu()
             elif choice == "0":
                 print("\n👋 Дякуємо за використання системи! До побачення!")
                 break

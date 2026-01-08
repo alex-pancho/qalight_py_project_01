@@ -51,6 +51,59 @@ def get_balance(bayer_id: str, database: dict):
     return database[bayer_id]["balance"]
 
 
+def get_account_info(bayer_id: str, database: dict) -> dict:
+    if bayer_id not in database:
+        raise ValueError(f"Рахунок '{bayer_id}' не знайдено")
+
+    account = database[bayer_id]
+    history = account.get("transaction_history", [])
+    last = history[-1] if history else None
+
+    return {
+        "bayer_id": account.get("bayer_id", bayer_id),
+        "balance": account.get("balance", 0.0),
+        "category": account.get("category", "Regular"),
+        "transactions_count": len(history),
+        "last_transaction": last,
+    }
+
+def find_accounts_by_category(category):
+    """
+    Знаходить всі рахунки певної категорії.
+
+    Args:
+        category (str): Категорія для пошуку
+
+    Returns:
+        dict: Словник з рахунками цієї категорії
+    """
+    database = db.load_database()
+    result = {}
+
+    for bayer_id, account in database.items():
+        if account.get("category", "Regular").upper() == category.upper():
+            result[bayer_id] = account
+
+    return result
+
+
+
+def get_total_balance():
+    """
+    Повертає загальну суму на всіх рахунках.
+
+    Returns:
+        float: Сума всіх балансів
+    """
+    database = db.load_database()
+
+    total = 0.0
+    for account in database.values():
+        total += float(account.get("balance", 0))
+
+    return total
+
+
 def deposit(bayer_id: str, database:dict, amount: float):
     """
     Docstring for deposit
@@ -64,6 +117,10 @@ def deposit(bayer_id: str, database:dict, amount: float):
     """
     if bayer_id not in database:
         raise ValueError(f"Рахунок з ID '{bayer_id}' не знайдено")
+
+    if amount <= 0:
+        raise ValueError("Сума поповнення повинна бути більшою за 0")
+
     database[bayer_id]["balance"] += amount
     
     transaction = {
@@ -71,6 +128,9 @@ def deposit(bayer_id: str, database:dict, amount: float):
         "amount": amount,
         "balance_after": database[bayer_id]["balance"],
     }
+    if "transaction_history" not in database[bayer_id]:
+        database[bayer_id]["transaction_history"] = []
+
     database[bayer_id]["transaction_history"].append(transaction)
 
     db.save_database(database)
@@ -80,6 +140,7 @@ def deposit(bayer_id: str, database:dict, amount: float):
     )
 
     return new_balance
+
 
 
 def withdraw(bayer_id: str, database:dict, amount: float):
@@ -95,13 +156,29 @@ def withdraw(bayer_id: str, database:dict, amount: float):
     """
     if bayer_id not in database:
         raise ValueError(f"Рахунок з ID '{bayer_id}' не знайдено")
+
+    MAX_WITHDRAW = 10000  # максимум 10 000 грн за раз
+
+    if amount <= 0:
+        raise ValueError("Сума зняття повинна бути більшою за 0")
+
+    if amount > MAX_WITHDRAW:
+        raise ValueError(f"Максимальна сума зняття: {MAX_WITHDRAW} грн")
+
+    if amount > database[bayer_id]["balance"]:
+        raise ValueError("Недостатньо коштів на рахунку")
+
     database[bayer_id]["balance"] -= amount
-    
+
     transaction = {
         "type": "withdraw",
         "amount": amount,
         "balance_after": database[bayer_id]["balance"],
     }
+
+    if "transaction_history" not in database[bayer_id]:
+        database[bayer_id]["transaction_history"] = []
+
     database[bayer_id]["transaction_history"].append(transaction)
 
     db.save_database(database)
@@ -111,6 +188,41 @@ def withdraw(bayer_id: str, database:dict, amount: float):
     )
 
     return new_balance
+
+
+def get_account_info(bayer_id: str, database: dict) -> dict:
+    """
+    Повертає повну інформацію про рахунок покупця.
+
+    Returns dict:
+      - bayer_id
+      - balance
+      - category
+      - transactions_count
+      - last_transaction (dict|None)
+    """
+    if bayer_id not in database:
+        raise ValueError(f"Рахунок '{bayer_id}' не знайдено")
+
+    account = database[bayer_id]
+
+    # базові поля (category може бути відсутня)
+    balance = account.get("balance", 0.0)
+    category = account.get("category", "Regular")
+
+    # історія транзакцій може бути відсутня
+    history = account.get("transaction_history", [])
+    transactions_count = len(history)
+
+    last_transaction = history[-1] if history else None
+
+    return {
+        "bayer_id": bayer_id,
+        "balance": balance,
+        "category": category,
+        "transactions_count": transactions_count,
+        "last_transaction": last_transaction,
+    }
 
 
 def calculate_discount(price, category):
