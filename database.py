@@ -1,8 +1,9 @@
 """Модуль для роботи з JSON базою даних.
 Забезпечує завантаження та збереження даних про рахунки покупців.
 """
-import json
 from pathlib import Path
+import json
+
 
 
 project_path = Path(__file__).parent
@@ -29,19 +30,17 @@ def load_database(db_path=DB_PATH):
 
 
 def save_database(database, db_path=DB_PATH):
-    """
-    Docstring for save_database
-    
-    :param database: Description
-    """
     try:
+        # ✅ гарантуємо, що папка data існує
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+
         with open(db_path, "w", encoding="utf-8") as file:
-            # indent=2 робить JSON читабельним з відступами
-            # ensure_ascii=False дозволяє зберігати українські символи
             json.dump(database, file, ensure_ascii=False, indent=2)
+
     except Exception as e:
         print(f"❌ Помилка збереження бази даних: {e}")
         raise
+
 
 
 def count_accounts(db_path=DB_PATH):
